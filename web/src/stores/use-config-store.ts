@@ -22,6 +22,7 @@ export type ModelChannel = {
     apiKey: string;
     apiFormat: ApiCallFormat;
     models: ChannelModel[];
+    managedBy?: "yunzhi";
 };
 
 export type AiConfig = {
@@ -144,7 +145,17 @@ type ConfigStore = {
     openConfigDialog: (shouldPromptContinue?: boolean, tab?: ConfigTabKey) => void;
     setConfigDialogOpen: (isOpen: boolean) => void;
     clearPromptContinue: () => void;
+    configureYunzhiChannel: (apiKey: string, models: ChannelModel[]) => void;
+    clearYunzhiChannel: () => void;
 };
+
+function configForPersistence(config: AiConfig): AiConfig {
+    return {
+        ...config,
+        apiKey: "",
+        channels: config.channels.map((channel) => (channel.managedBy === "yunzhi" ? { ...channel, apiKey: "" } : channel)),
+    };
+}
 
 const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo"];
 
@@ -235,10 +246,59 @@ export const useConfigStore = create<ConfigStore>()(
             openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
             clearPromptContinue: () => set({ shouldPromptContinue: false }),
+            configureYunzhiChannel: (apiKey, models) =>
+                set((state) => {
+                    const existing = state.config.channels.find((channel) => channel.managedBy === "yunzhi");
+                    const channel: ModelChannel = {
+                        id: existing?.id || "yunzhi",
+                        name: "云智 AI",
+                        baseUrl: "https://yunzhicode.com/v1",
+                        apiKey,
+                        apiFormat: "openai",
+                        models: models.length ? models : existing?.models || [],
+                        managedBy: "yunzhi",
+                    };
+                    const channels = [...state.config.channels.filter((item) => item.managedBy !== "yunzhi"), channel];
+                    const options = modelOptionsFromChannels(channels);
+                    const first = (capability: ModelCapability) => {
+                        const option = channels.flatMap((item) => item.models.filter((model) => model.capability === capability).map((model) => encodeChannelModel(item.id, model.name)))[0];
+                        return option || "";
+                    };
+                    return {
+                        config: {
+                            ...state.config,
+                            channels,
+                            models: options,
+                            model: first("image") || options[0] || state.config.model,
+                            imageModel: first("image") || state.config.imageModel,
+                            videoModel: first("video") || state.config.videoModel,
+                            textModel: first("text") || state.config.textModel,
+                            audioModel: first("audio") || state.config.audioModel,
+                        },
+                    };
+                }),
+            clearYunzhiChannel: () =>
+                set((state) => {
+                    const channels = state.config.channels.filter((item) => item.managedBy !== "yunzhi");
+                    const options = modelOptionsFromChannels(channels);
+                    const first = (capability: ModelCapability) => channels.flatMap((item) => item.models.filter((model) => model.capability === capability).map((model) => encodeChannelModel(item.id, model.name)))[0] || "";
+                    return {
+                        config: {
+                            ...state.config,
+                            channels,
+                            models: options,
+                            model: first("image") || options[0] || "",
+                            imageModel: first("image"),
+                            videoModel: first("video"),
+                            textModel: first("text"),
+                            audioModel: first("audio"),
+                        },
+                    };
+                }),
         }),
         {
             name: CONFIG_STORE_KEY,
-            partialize: (state) => ({ config: state.config, webdav: state.webdav }),
+            partialize: (state) => ({ config: configForPersistence(state.config), webdav: state.webdav }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
@@ -246,6 +306,9 @@ export const useConfigStore = create<ConfigStore>()(
                 const config = { ...defaultConfig, ...persistedConfig };
                 if (!Array.isArray(persistedConfig.channels)) config.channels = [];
                 const channels = normalizeChannels(config);
+                channels.forEach((channel) => {
+                    if (channel.managedBy === "yunzhi") channel.apiKey = "";
+                });
                 const models = modelOptionsFromChannels(channels);
                 return {
                     ...current,
@@ -309,6 +372,7 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
         apiKey: channel?.apiKey || "",
         apiFormat,
         models: normalizeChannelModels(channel?.models),
+        ...(channel?.managedBy ? { managedBy: channel.managedBy } : {}),
     };
 }
 

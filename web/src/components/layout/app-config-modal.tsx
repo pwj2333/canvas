@@ -1,6 +1,6 @@
 import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
 import type { TFunction } from "i18next";
-import { Cloud, Download, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
+import { Cloud, Download, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -195,16 +195,19 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                     {config.channels.map((channel) => (
                                         <div key={channel.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-4 py-3 dark:border-stone-800">
                                             <div className="min-w-0">
-                                                <div className="truncate text-sm font-semibold">{channel.name || t("config.channels.unnamed")}</div>
+                                                <div className="flex items-center gap-2 truncate text-sm font-semibold">
+                                                    <span className="truncate">{channel.name || t("config.channels.unnamed")}</span>
+                                                    {channel.managedBy === "yunzhi" ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#fff0df] px-2 py-0.5 text-[10px] font-semibold text-[#b75d13] dark:bg-[#4b2d17] dark:text-[#f4c58d]"><LockKeyhole className="size-3" />云智托管</span> : null}
+                                                </div>
                                                 <div className="mt-1 truncate text-xs text-stone-500">
                                                     {apiFormatLabel(channel.apiFormat)} · {t("config.channels.modelCount", { count: channel.models.length })} · {channel.baseUrl || t("config.channels.missingUrl")}
                                                 </div>
                                             </div>
                                             <div className="flex shrink-0 gap-2">
-                                                <Button size="small" icon={<Pencil className="size-3.5" />} onClick={() => setEditingChannelId(channel.id)}>
+                                                <Button size="small" disabled={channel.managedBy === "yunzhi"} icon={<Pencil className="size-3.5" />} onClick={() => setEditingChannelId(channel.id)}>
                                                     {t("common.edit")}
                                                 </Button>
-                                                <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={() => deleteChannel(channel.id)} />
+                                                <Button size="small" danger disabled={channel.managedBy === "yunzhi"} icon={<Trash2 className="size-3.5" />} onClick={() => deleteChannel(channel.id)} />
                                             </div>
                                         </div>
                                     ))}

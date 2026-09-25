@@ -1,7 +1,7 @@
 export default {
     meta: {
-        title: "无限画布",
-        description: "一个无限画布创作工具",
+        title: "云智画布",
+        description: "云智 AI 驱动的无限画布创作工作台",
     },
     theme: { toggle: "切换主题" },
     common: {
@@ -346,9 +346,9 @@ export default {
     },
     home: {
         promptError: "获取提示词失败",
-        description: "在 <canvas>无限画布</canvas> 中生成、连接和重组 <content>图片、文字与图形</content>，让创作从单次生成变成连续推演。",
-        start: "开始使用",
-        openCanvas: "打开画布",
+        description: "在 <canvas>云智画布</canvas> 中生成、连接和重组 <content>图片、文字与图形</content>，让创作从单次生成变成连续推演。",
+        start: "开始创作",
+        openCanvas: "进入工作台",
         showcaseTitle: "沉淀每一次好结果",
         showcaseDescription: "收藏稳定出图的提示词、参考风格和结果图片，让下一次创作从已有经验开始。",
         viewPrompts: "查看提示词库",
@@ -372,7 +372,7 @@ export default {
     config: {
         title: "配置与用户偏好",
         invalidFile: "配置文件格式不正确",
-        description: "渠道聚合、模型选择、同步与本地存储",
+        description: "云智托管模型、本地创作偏好与浏览器存储",
         modalDescription: "渠道聚合、默认模型、同步与本地存储",
         tabs: {
             channels: "渠道",

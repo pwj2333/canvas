@@ -1,7 +1,7 @@
 export default {
     meta: {
-        title: "Infinite Canvas",
-        description: "An infinite canvas creation tool",
+        title: "Yunzhi Canvas",
+        description: "A Yunzhi AI powered infinite canvas workspace",
     },
     theme: { toggle: "Toggle theme" },
     common: {
@@ -346,9 +346,9 @@ export default {
     },
     home: {
         promptError: "Failed to load prompts",
-        description: "Generate, connect, and reshape <content>images, text, and graphics</content> in <canvas>Infinite Canvas</canvas>, turning one-off generations into a continuous creative process.",
-        start: "Get started",
-        openCanvas: "Open canvas",
+        description: "Generate, connect, and reshape <content>images, text, and graphics</content> in <canvas>Yunzhi Canvas</canvas>, turning one-off generations into a continuous creative process.",
+        start: "Start creating",
+        openCanvas: "Open workspace",
         showcaseTitle: "Keep every great result",
         showcaseDescription: "Save reliable prompts, visual references, and generated images so your next creation starts from proven ideas.",
         viewPrompts: "View prompt library",

@@ -35,23 +35,17 @@ export function AppTopNav() {
     return (
         <>
             {!hideHeader ? (
-                <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-stone-200 bg-background/90 backdrop-blur-xl dark:border-stone-800">
+                <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-[#eadbc5] bg-[#fffaf0]/90 backdrop-blur-xl dark:border-[#453525] dark:bg-[#1d1711]/90">
                     <div className="mx-auto flex h-full max-w-7xl items-stretch justify-between gap-5 px-6">
                         <div className="flex min-w-0 items-center">
-                            <Link to="/" className="flex h-full shrink-0 items-center gap-2 text-sm font-semibold leading-none tracking-tight text-stone-950 transition hover:text-stone-600 dark:text-stone-100 dark:hover:text-stone-300">
-                                <span
-                                    className="size-5 shrink-0 bg-current"
-                                    style={{
-                                        mask: "url(/logo.svg) center / contain no-repeat",
-                                        WebkitMask: "url(/logo.svg) center / contain no-repeat",
-                                    }}
-                                />
-                                <span className="text-base font-medium">{t("meta.title")}</span>
+                            <Link to="/" className="flex h-full shrink-0 items-center gap-2.5 text-sm font-semibold leading-none tracking-tight text-[#181818] transition hover:text-[#b75d13] dark:text-[#fff8ed] dark:hover:text-[#f4c58d]">
+                                <img src="https://lsky.zhongzhuan.chat/i/2025/09/29/68d9e6ddc4381.png" alt="" className="size-7 rounded-md object-contain" />
+                                <span className="text-base font-semibold">{t("meta.title")}</span>
                             </Link>
 
                             <button
                                 type="button"
-                                className="ml-3 inline-flex size-8 shrink-0 items-center justify-center text-stone-600 transition hover:text-stone-950 md:hidden dark:text-stone-300 dark:hover:text-white"
+                                className="ml-3 inline-flex size-8 shrink-0 items-center justify-center text-[#74440d] transition hover:text-[#e96b18] md:hidden dark:text-[#d6c7b4] dark:hover:text-[#f4c58d]"
                                 onClick={() => setMobileNavOpen(true)}
                                 aria-label={t("topNav.openMenu")}
                                 title={t("topNav.menu")}
@@ -70,8 +64,8 @@ export function AppTopNav() {
                                             className={cn(
                                                 "relative flex h-14 shrink-0 items-center gap-2 text-sm leading-6 transition after:absolute after:inset-x-0 after:bottom-0 after:h-px",
                                                 active
-                                                    ? "font-medium text-stone-950 after:bg-stone-950 dark:text-stone-100 dark:after:bg-stone-100"
-                                                    : "text-stone-500 after:bg-transparent hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-100",
+                                                    ? "font-semibold text-[#b75d13] after:bg-[#e96b18] dark:text-[#f4c58d] dark:after:bg-[#f29a4a]"
+                                                    : "text-[#806c56] after:bg-transparent hover:text-[#b75d13] dark:text-[#c8b69e] dark:hover:text-[#f4c58d]",
                                             )}
                                         >
                                             <Icon className="size-4" />

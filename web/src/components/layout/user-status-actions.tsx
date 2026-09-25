@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
-import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { App, Tooltip } from "antd";
+import { BookOpen, Keyboard, LogOut, Puzzle, Settings2, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { GitHubLink } from "@/components/layout/github-link";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { useUserStore } from "@/stores/use-user-store";
 
 type UserStatusActionsProps = {
     showConfig?: boolean;
@@ -32,8 +34,21 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const gitHubClassName = "size-7 text-base";
     const gitHubStyle = iconStyle;
     const locale = i18n.resolvedLanguage as AppLocale;
+    const navigate = useNavigate();
+    const { message } = App.useApp();
+    const user = useUserStore((state) => state.user);
+    const logout = useUserStore((state) => state.logout);
     const nextLocale = locale === "zh-CN" ? "en-US" : "zh-CN";
     const languageLabel = t("topNav.switchLanguage", { language: t(nextLocale === "zh-CN" ? "locale.zhCN" : "locale.enUS") });
+    const signOut = async () => {
+        try {
+            await logout();
+            message.success("已退出云智账号");
+            navigate("/", { replace: true });
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "退出登录失败");
+        }
+    };
 
     return (
         <div className="inline-flex shrink-0 items-center gap-1">
@@ -62,6 +77,19 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label={t("topNav.shortcuts")} title={t("topNav.shortcuts")}>
                     <Keyboard className="size-4" />
                 </button>
+            ) : null}
+            {user ? (
+                <>
+                    <span className="ml-1 hidden max-w-28 items-center gap-1.5 truncate text-xs font-medium text-[#74440d] sm:inline-flex dark:text-[#f4d7ad]">
+                        <UserRound className="size-3.5 shrink-0" />
+                        <span className="truncate">{user.displayName}</span>
+                    </span>
+                    <Tooltip title="退出云智账号">
+                        <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => void signOut()} aria-label="退出云智账号">
+                            <LogOut className="size-4" />
+                        </button>
+                    </Tooltip>
+                </>
             ) : null}
         </div>
     );
