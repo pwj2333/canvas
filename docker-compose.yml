@@ -1,9 +1,9 @@
 services:
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
-    container_name: infinite-canvas
+    image: ghcr.io/pwj2333/canvas:latest
+    container_name: yunzhicanvas
     ports:
-      - "3000:3000"
+      - "${CANVAS_PORT:-3000}:3000"
     restart: unless-stopped
     # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
     # environment:
