@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import axios from "axios";
 
-import { clearYunzhiSessionToken, fetchYunzhiModels, fetchYunzhiPolicy, fetchYunzhiToken, fetchYunzhiUser, isYunzhiApiUrl, logoutYunzhi, toLocalUser, YunzhiAuthError, yunzhiLoginUrl } from "@/services/api/yunzhi-auth";
+import { clearYunzhiSessionToken, fetchYunzhiModels, fetchYunzhiPolicy, fetchYunzhiToken, fetchYunzhiUser, isYunzhiApiUrl, logoutYunzhi, saveYunzhiPolicy, toLocalUser, YunzhiAuthError, yunzhiLoginUrl } from "@/services/api/yunzhi-auth";
 import type { ChannelModel, YunzhiPolicy } from "@/stores/use-config-store";
 import { useConfigStore } from "@/stores/use-config-store";
 import { activateLocalData, deactivateLocalData } from "@/lib/localforage-storage";
@@ -27,6 +27,7 @@ type UserStore = {
     clearSession: () => void;
     policy: YunzhiPolicy | null;
     refreshPolicy: () => Promise<void>;
+    saveChannelPolicy: (models: ChannelModel[]) => Promise<void>;
 };
 
 let initialization: Promise<void> | null = null;
@@ -76,6 +77,27 @@ export const useUserStore = create<UserStore>()((set) => ({
         const models = await fetchYunzhiModels(token, policy.config);
         useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
         set({ policy: policy.config });
+    },
+    saveChannelPolicy: async (models) => {
+        const token = await fetchYunzhiToken();
+        const current = useUserStore.getState().policy;
+        if (!current) throw new Error("云智策略尚未加载");
+        const modelTypes = { ...current.model_types };
+        const enabledModels = { ...current.enabled_models };
+        for (const capability of ["text", "image", "video", "audio"] as const) enabledModels[capability] = [];
+        for (const model of models) {
+            modelTypes[model.name] = model.capability;
+            enabledModels[model.capability] = [...enabledModels[model.capability], model.name];
+        }
+        const response = await saveYunzhiPolicy(token, {
+            allow_external_channels: current.allow_external_channels,
+            default_groups: current.default_groups,
+            enabled_models: enabledModels,
+            enabled_models_configured: true,
+            model_types: modelTypes,
+            default_models: current.default_models,
+        });
+        set({ policy: response.config });
     },
     logout: async () => {
         try {

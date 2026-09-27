@@ -9,7 +9,7 @@ import { ModelSelectModal } from "./model-select-modal";
 
 type ScriptTarget = { name: string; capability: ModelCapability; value: string };
 
-export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: boolean; channel: ModelChannel | null; onSave: (channel: ModelChannel) => void; onClose: () => void }) {
+export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: boolean; channel: ModelChannel | null; onSave: (channel: ModelChannel) => void | Promise<void>; onClose: () => void }) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState<ModelChannel | null>(channel);
     const [selectOpen, setSelectOpen] = useState(false);
@@ -44,7 +44,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
     const removeModel = (name: string) => setModels(draft.models.filter((model) => model.name !== name));
 
     const save = () => {
-        onSave({ ...draft, name: draft.name.trim() || t("config.channels.unnamed"), models: normalizeChannelModels(draft.models) });
+        void onSave({ ...draft, name: draft.name.trim() || t("config.channels.unnamed"), models: normalizeChannelModels(draft.models) });
         onClose();
     };
 

@@ -73,6 +73,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const user = useUserStore((state) => state.user);
     const navigate = useNavigate();
     const isAdmin = Boolean(user && user.role >= 10);
+    const saveChannelPolicy = useUserStore((state) => state.saveChannelPolicy);
     useEffect(() => setActiveTab(initialTab), [initialTab]);
 
     const saveConfig = (nextConfig: AiConfig) => {
@@ -114,7 +115,8 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
         updateChannels(config.channels.filter((channel) => channel.id !== id));
     };
 
-    const saveChannel = (channel: ModelChannel) => {
+    const saveChannel = async (channel: ModelChannel) => {
+        if (channel.managedBy === "yunzhi" && isAdmin) await saveChannelPolicy(channel.models);
         updateChannels(config.channels.map((item) => (item.id === channel.id ? channel : item)));
     };
 
