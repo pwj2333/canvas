@@ -4,6 +4,7 @@ import { persist, type PersistStorage, type StorageValue } from "zustand/middlew
 import { nanoid } from "nanoid";
 import i18n from "@/i18n";
 import { localForageStorage } from "@/lib/localforage-storage";
+import { hasLocalDataUser, userDataStore } from "@/lib/localforage-storage";
 import type { CanvasBackgroundMode } from "@/lib/canvas-theme";
 import type { CanvasAssistantSession, CanvasConnection, CanvasNodeData, ViewportTransform } from "@/types/canvas";
 
@@ -54,13 +55,15 @@ const canvasStorage: PersistStorage<CanvasStore> = {
         return parsed;
     },
     setItem: (name, value) => {
+        if (!hasLocalDataUser()) return;
         const nextState = value.state as PersistedCanvasState;
         if (queuedPersistState && queuedPersistState.projects === nextState.projects && queuedPersistState.deletedProjects === nextState.deletedProjects) return;
         queuedPersistState = nextState;
+        const target = userDataStore("app_state");
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             saveTimer = null;
-            void localForageStorage.setItem(name, JSON.stringify(value));
+            void target.setItem(name, JSON.stringify(value));
         }, 400);
     },
     removeItem: (name) => localForageStorage.removeItem(name),
@@ -132,6 +135,7 @@ export const useCanvasStore = create<CanvasStore>()(
         }),
         {
             name: CANVAS_STORE_KEY,
+            skipHydration: true,
             storage: canvasStorage,
             partialize: (state) =>
                 ({

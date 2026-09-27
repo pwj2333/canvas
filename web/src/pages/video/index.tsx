@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, BookOpen, CheckSquare, ClipboardPaste, Download, FolderPlus, History, LoaderCircle, Plus, SlidersHorizontal, Sparkles, Trash2, Upload, VideoIcon } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
 import { App, Button, Checkbox, Drawer, Empty, Input, Modal, Tag, Typography } from "antd";
-import localforage from "localforage";
+import { userDataStore } from "@/lib/localforage-storage";
 import { nanoid } from "nanoid";
 import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
@@ -65,7 +65,7 @@ type GenerationLogConfig = Pick<AiConfig, "model" | "videoModel" | "size" | "vqu
 type UpdateAiConfig = <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
 
 const LOG_STORE_KEY = "infinite-canvas:video_generation_logs";
-const logStore = localforage.createInstance({ name: "infinite-canvas", storeName: "video_generation_logs" });
+const logStore = () => userDataStore("video_generation_logs");
 
 export default function VideoPage() {
     const { message } = App.useApp();
@@ -280,7 +280,7 @@ export default function VideoPage() {
             .filter((log) => selectedLogIds.includes(log.id))
             .map((log) => log.video?.storageKey)
             .filter((key): key is string => Boolean(key));
-        void Promise.all([deleteStoredMedia(mediaKeys), ...selectedLogIds.map((id) => logStore.removeItem(id))]).then(() => refreshLogs());
+        void Promise.all([deleteStoredMedia(mediaKeys), ...selectedLogIds.map((id) => logStore().removeItem(id))]).then(() => refreshLogs());
         if (previewLog && selectedLogIds.includes(previewLog.id)) {
             setPreviewLog(null);
             setResults([]);
@@ -290,7 +290,7 @@ export default function VideoPage() {
     };
 
     const saveLog = async (log: GenerationLog, resumePending = true) => {
-        await logStore.setItem(log.id, serializeLog(log));
+        await logStore().setItem(log.id, serializeLog(log));
         await refreshLogs(resumePending);
     };
 
@@ -662,7 +662,7 @@ async function readStoredLogs() {
     if (typeof window === "undefined") return [];
     try {
         const logs: GenerationLog[] = [];
-        await logStore.iterate<GenerationLog, void>((value) => {
+        await logStore().iterate<GenerationLog, void>((value) => {
             logs.push(value);
         });
         return (await Promise.all(logs.map(normalizeLog))).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

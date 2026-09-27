@@ -4,6 +4,9 @@ import axios from "axios";
 import { clearYunzhiSessionToken, fetchYunzhiModels, fetchYunzhiPolicy, fetchYunzhiToken, fetchYunzhiUser, isYunzhiApiUrl, logoutYunzhi, toLocalUser, YunzhiAuthError, yunzhiLoginUrl } from "@/services/api/yunzhi-auth";
 import type { ChannelModel, YunzhiPolicy } from "@/stores/use-config-store";
 import { useConfigStore } from "@/stores/use-config-store";
+import { activateLocalData, deactivateLocalData } from "@/lib/localforage-storage";
+import { clearImageObjectUrls } from "@/services/image-storage";
+import { clearMediaObjectUrls } from "@/services/file-storage";
 
 export type LocalUser = {
     id: string;
@@ -41,6 +44,9 @@ export const useUserStore = create<UserStore>()((set) => ({
                 const token = await fetchYunzhiToken();
                 const user = await fetchYunzhiUser();
                 const policy = await fetchYunzhiPolicy(token);
+                await activateLocalData(String(user.id));
+                const [{ useCanvasStore }, { useAssetStore }] = await Promise.all([import("@/stores/canvas/use-canvas-store"), import("@/stores/use-asset-store")]);
+                await Promise.all([useCanvasStore.persist.rehydrate(), useAssetStore.persist.rehydrate()]);
                 let models: ChannelModel[] = [];
                 try {
                     models = await fetchYunzhiModels(token, policy.config);
@@ -51,6 +57,7 @@ export const useUserStore = create<UserStore>()((set) => ({
                 useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
                 set({ user: toLocalUser(user), policy: policy.config, status: "authenticated", error: "" });
             } catch (error) {
+                deactivateLocalData();
                 clearYunzhiSessionToken();
                 set({ user: null, status: error instanceof YunzhiAuthError ? "unauthenticated" : "error", error: error instanceof Error ? error.message : "云智登录状态无效" });
             } finally {
@@ -76,10 +83,17 @@ export const useUserStore = create<UserStore>()((set) => ({
         } finally {
             clearYunzhiSessionToken();
             useConfigStore.getState().clearYunzhiChannel();
+            deactivateLocalData();
+            clearImageObjectUrls();
+            clearMediaObjectUrls();
+            const [{ useCanvasStore }, { useAssetStore }] = await Promise.all([import("@/stores/canvas/use-canvas-store"), import("@/stores/use-asset-store")]);
+            useCanvasStore.setState({ projects: [], deletedProjects: [], hydrated: false });
+            useAssetStore.setState({ assets: [], hydrated: false });
             set({ user: null, policy: null, status: "unauthenticated", error: "" });
         }
     },
     clearSession: () => {
+        deactivateLocalData();
         clearYunzhiSessionToken();
         set({ user: null, status: "unauthenticated" });
     },

@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, BookOpen, CheckSquare, ClipboardPaste, Download, FolderPlus, History, ImagePlus, LoaderCircle, PenLine, Plus, SlidersHorizontal, Sparkles, Trash2, Upload } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { App, Button, Checkbox, Drawer, Empty, Image, Input, Modal, Tag, Tooltip, Typography } from "antd";
-import localforage from "localforage";
+import { userDataStore } from "@/lib/localforage-storage";
 import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
@@ -65,7 +65,7 @@ type UpdateAiConfig = <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => 
 
 const LOG_STORE_KEY = "infinite-canvas:image_generation_logs";
 const RESULT_ACTION_BUTTON_CLASS = "min-w-0 px-1.5 [&_.ant-btn-icon]:shrink-0 [&>span:last-child]:min-w-0 [&>span:last-child]:truncate";
-const logStore = localforage.createInstance({ name: "infinite-canvas", storeName: "image_generation_logs" });
+const logStore = () => userDataStore("image_generation_logs");
 
 export default function ImagePage() {
     const { message } = App.useApp();
@@ -277,7 +277,7 @@ export default function ImagePage() {
 
     const deleteSelectedLogs = () => {
         const imageKeys = logs.filter((log) => selectedLogIds.includes(log.id)).flatMap((log) => log.images.map((image) => image.storageKey).filter((key): key is string => Boolean(key)));
-        void Promise.all([deleteStoredImages(imageKeys), ...selectedLogIds.map((id) => logStore.removeItem(id))]).then(refreshLogs);
+        void Promise.all([deleteStoredImages(imageKeys), ...selectedLogIds.map((id) => logStore().removeItem(id))]).then(refreshLogs);
         if (previewLog && selectedLogIds.includes(previewLog.id)) {
             setPreviewLog(null);
             setResults([]);
@@ -287,7 +287,7 @@ export default function ImagePage() {
     };
 
     const saveLog = (log: GenerationLog) => {
-        void logStore.setItem(log.id, serializeLog(log)).then(refreshLogs);
+        void logStore().setItem(log.id, serializeLog(log)).then(refreshLogs);
     };
 
     const refreshLogs = async () => setLogs(await readStoredLogs());
@@ -773,7 +773,7 @@ async function readStoredLogs() {
     if (typeof window === "undefined") return [];
     try {
         const values: GenerationLog[] = [];
-        await logStore.iterate<GenerationLog, void>((value) => {
+        await logStore().iterate<GenerationLog, void>((value) => {
             values.push(value);
         });
         const logs = await Promise.all(values.map(normalizeLog));
