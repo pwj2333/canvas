@@ -1,9 +1,6 @@
 name: GitHub Pages
 
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
