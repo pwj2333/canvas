@@ -1,8 +1,9 @@
 import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
 import type { TFunction } from "i18next";
-import { Cloud, Download, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
+import { Cloud, Download, LockKeyhole, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, Upload, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { ModelPicker } from "@/components/model-picker";
 import { ChannelEditorDrawer } from "@/components/layout/channel-editor-drawer";
@@ -69,6 +70,9 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const editingChannel = config.channels.find((channel) => channel.id === editingChannelId) || null;
     const locale = i18n.resolvedLanguage as AppLocale;
     const allowExternalChannels = useUserStore((state) => state.policy?.allow_external_channels ?? false);
+    const user = useUserStore((state) => state.user);
+    const navigate = useNavigate();
+    const isAdmin = Boolean(user && user.role >= 10);
     useEffect(() => setActiveTab(initialTab), [initialTab]);
 
     const saveConfig = (nextConfig: AiConfig) => {
@@ -189,6 +193,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                             <div>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div className="text-xs text-stone-500">{t("config.channels.description")}</div>
+                                    {isAdmin ? <Button icon={<ShieldCheck className="size-4" />} onClick={() => { setConfigDialogOpen(false); navigate("/admin"); }}>管理模型策略</Button> : null}
                                     {allowExternalChannels ? <Button type="primary" icon={<Plus className="size-4" />} onClick={addChannel}>{t("config.channels.add")}</Button> : <span className="text-xs text-stone-500">管理员已禁止外部大模型渠道</span>}
                                 </div>
                                 <div className="space-y-2">
@@ -204,6 +209,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                                 </div>
                                             </div>
                                             <div className="flex shrink-0 gap-2">
+                                                {channel.managedBy === "yunzhi" && isAdmin ? <Button size="small" icon={<ShieldCheck className="size-3.5" />} onClick={() => { setConfigDialogOpen(false); navigate("/admin"); }}>管理策略</Button> : null}
                                                 <Button size="small" disabled={channel.managedBy === "yunzhi"} icon={<Pencil className="size-3.5" />} onClick={() => setEditingChannelId(channel.id)}>
                                                     {t("common.edit")}
                                                 </Button>
