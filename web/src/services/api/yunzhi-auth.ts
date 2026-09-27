@@ -29,6 +29,7 @@ export type YunzhiPolicy = {
     enabled_models_configured: boolean;
     model_types: Record<string, ModelCapability>;
     default_models: Record<ModelCapability, string>;
+    models?: string[];
 };
 
 export type YunzhiCatalog = { models: string[]; groups: string[] };
@@ -127,6 +128,7 @@ export async function fetchYunzhiToken() {
 }
 
 export async function fetchYunzhiModels(token: string, policy?: YunzhiPolicy): Promise<ChannelModel[]> {
+    if (Array.isArray(policy?.models)) return policy.models.filter((name) => policy.model_types?.[name] && (!policy.enabled_models_configured || policy.enabled_models[policy.model_types[name]]?.includes(name))).map((name) => ({ name, capability: policy.model_types[name] }));
     let response: Response;
     try {
         response = await fetch(`${YUNZHI_API_BASE_URL}/models`, { credentials: "include", headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
@@ -138,9 +140,8 @@ export async function fetchYunzhiModels(token: string, policy?: YunzhiPolicy): P
         throw new Error(`读取云智模型列表失败（${response.status}）`);
     }
     const data = (await response.json()) as { data?: Array<{ id?: string }> };
-    return (data?.data || [])
-        .map((item) => item.id?.trim() || "")
-        .filter(Boolean)
+    const names = Array.isArray(policy?.models) ? policy.models : (data?.data || []).map((item) => item.id?.trim() || "").filter(Boolean);
+    return names
         .sort((a, b) => a.localeCompare(b))
         .flatMap((name) => {
             const capability = policy?.model_types?.[name];
@@ -151,7 +152,7 @@ export async function fetchYunzhiModels(token: string, policy?: YunzhiPolicy): P
 }
 
 export async function fetchYunzhiPolicy(token: string) {
-    return request<{ config: YunzhiPolicy; groups: string[] }>("/api/canvas/config", {}, token);
+    return request<{ config: YunzhiPolicy; groups: string[]; models: string[] }>("/api/canvas/config", {}, token);
 }
 
 export async function fetchYunzhiCatalog(token: string) {

@@ -45,18 +45,19 @@ export const useUserStore = create<UserStore>()((set) => ({
                 const token = await fetchYunzhiToken();
                 const user = await fetchYunzhiUser();
                 const policy = await fetchYunzhiPolicy(token);
+                const fullPolicy = { ...policy.config, models: policy.models };
                 await activateLocalData(String(user.id));
                 const [{ useCanvasStore }, { useAssetStore }] = await Promise.all([import("@/stores/canvas/use-canvas-store"), import("@/stores/use-asset-store")]);
                 await Promise.all([useCanvasStore.persist.rehydrate(), useAssetStore.persist.rehydrate()]);
                 let models: ChannelModel[] = [];
                 try {
-                    models = await fetchYunzhiModels(token, policy.config);
+                    models = await fetchYunzhiModels(token, fullPolicy);
                 } catch (modelError) {
                     if (modelError instanceof YunzhiAuthError) throw modelError;
                     models = [];
                 }
-                useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
-                set({ user: toLocalUser(user), policy: policy.config, status: "authenticated", error: "" });
+                useConfigStore.getState().configureYunzhiChannel(token, models, fullPolicy);
+                set({ user: toLocalUser(user), policy: fullPolicy, status: "authenticated", error: "" });
             } catch (error) {
                 deactivateLocalData();
                 clearYunzhiSessionToken();
@@ -73,10 +74,11 @@ export const useUserStore = create<UserStore>()((set) => ({
     refreshPolicy: async () => {
         const token = await fetchYunzhiToken();
         const policy = await fetchYunzhiPolicy(token);
-        if (useUserStore.getState().policy?.revision === policy.config.revision) return;
-        const models = await fetchYunzhiModels(token, policy.config);
-        useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
-        set({ policy: policy.config });
+        const fullPolicy = { ...policy.config, models: policy.models };
+        if (useUserStore.getState().policy?.revision === fullPolicy.revision) return;
+        const models = await fetchYunzhiModels(token, fullPolicy);
+        useConfigStore.getState().configureYunzhiChannel(token, models, fullPolicy);
+        set({ policy: fullPolicy });
     },
     saveChannelPolicy: async (models) => {
         const token = await fetchYunzhiToken();
