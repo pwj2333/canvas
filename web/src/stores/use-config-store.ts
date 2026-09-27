@@ -70,7 +70,10 @@ export type YunzhiPolicy = {
     revision: number;
     updated_at: number;
     default_group: string;
+    default_groups: Record<ModelCapability, string>;
     enabled_models: Record<ModelCapability, string[]>;
+    enabled_models_configured: boolean;
+    model_types: Record<string, ModelCapability>;
     default_models: Record<ModelCapability, string>;
 };
 
@@ -258,14 +261,15 @@ export const useConfigStore = create<ConfigStore>()(
                 set((state) => {
                     const existing = state.config.channels.find((channel) => channel.managedBy === "yunzhi");
                     const enabled = policy?.enabled_models;
-                    const filteredModels = models.filter((model) => !enabled?.[model.capability]?.length || enabled[model.capability].includes(model.name));
+                    const typedModels = models.filter((model) => policy?.model_types?.[model.name] === model.capability);
+                    const filteredModels = policy?.enabled_models_configured ? typedModels.filter((model) => enabled?.[model.capability]?.includes(model.name)) : typedModels;
                     const channel: ModelChannel = {
                         id: existing?.id || "yunzhi",
                         name: "云智 AI",
                         baseUrl: "https://yunzhicode.com/v1",
                         apiKey,
                         apiFormat: "openai",
-                        models: filteredModels.length ? filteredModels : existing?.models || [],
+                        models: filteredModels,
                         managedBy: "yunzhi",
                     };
                     const channels = [...state.config.channels.filter((item) => item.managedBy !== "yunzhi"), channel];

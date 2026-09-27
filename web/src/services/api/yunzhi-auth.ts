@@ -1,4 +1,4 @@
-import { guessCapability, type ChannelModel } from "@/stores/use-config-store";
+import type { ChannelModel, ModelCapability } from "@/stores/use-config-store";
 
 export const YUNZHI_BASE_URL = "https://yunzhicode.com";
 export const YUNZHI_API_BASE_URL = `${YUNZHI_BASE_URL}/v1`;
@@ -23,8 +23,11 @@ export type YunzhiPolicy = {
     revision: number;
     updated_at: number;
     default_group: string;
-    enabled_models: Record<"text" | "image" | "video" | "audio", string[]>;
-    default_models: Record<"text" | "image" | "video" | "audio", string>;
+    default_groups: Record<ModelCapability, string>;
+    enabled_models: Record<ModelCapability, string[]>;
+    enabled_models_configured: boolean;
+    model_types: Record<string, ModelCapability>;
+    default_models: Record<ModelCapability, string>;
 };
 
 export type YunzhiCatalog = { models: string[]; groups: string[] };
@@ -122,7 +125,7 @@ export async function fetchYunzhiToken() {
     return exchanged.token.trim();
 }
 
-export async function fetchYunzhiModels(token: string): Promise<ChannelModel[]> {
+export async function fetchYunzhiModels(token: string, policy?: YunzhiPolicy): Promise<ChannelModel[]> {
     let response: Response;
     try {
         response = await fetch(`${YUNZHI_API_BASE_URL}/models`, { credentials: "include", headers: { Accept: "application/json", Authorization: `Bearer ${token}` } });
@@ -138,7 +141,12 @@ export async function fetchYunzhiModels(token: string): Promise<ChannelModel[]> 
         .map((item) => item.id?.trim() || "")
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b))
-        .map((name) => ({ name, capability: guessCapability(name) }));
+        .flatMap((name) => {
+            const capability = policy?.model_types?.[name];
+            if (!capability) return [];
+            if (policy.enabled_models_configured && !policy.enabled_models[capability]?.includes(name)) return [];
+            return [{ name, capability }];
+        });
 }
 
 export async function fetchYunzhiPolicy(token: string) {
@@ -149,7 +157,7 @@ export async function fetchYunzhiCatalog(token: string) {
     return request<YunzhiCatalog>("/api/canvas/admin/catalog", {}, token);
 }
 
-export async function saveYunzhiPolicy(token: string, policy: Pick<YunzhiPolicy, "default_group" | "enabled_models" | "default_models">) {
+export async function saveYunzhiPolicy(token: string, policy: Pick<YunzhiPolicy, "default_groups" | "enabled_models" | "enabled_models_configured" | "model_types" | "default_models">) {
     return request<{ config: YunzhiPolicy; groups: string[] }>("/api/canvas/config", { method: "PUT", body: JSON.stringify(policy) }, token);
 }
 

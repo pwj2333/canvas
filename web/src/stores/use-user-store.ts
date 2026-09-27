@@ -40,14 +40,14 @@ export const useUserStore = create<UserStore>()((set) => ({
             try {
                 const token = await fetchYunzhiToken();
                 const user = await fetchYunzhiUser();
+                const policy = await fetchYunzhiPolicy(token);
                 let models: ChannelModel[] = [];
                 try {
-                    models = await fetchYunzhiModels(token);
+                    models = await fetchYunzhiModels(token, policy.config);
                 } catch (modelError) {
                     if (modelError instanceof YunzhiAuthError) throw modelError;
                     models = [];
                 }
-                const policy = await fetchYunzhiPolicy(token);
                 useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
                 set({ user: toLocalUser(user), policy: policy.config, status: "authenticated", error: "" });
             } catch (error) {
@@ -66,7 +66,7 @@ export const useUserStore = create<UserStore>()((set) => ({
         const token = await fetchYunzhiToken();
         const policy = await fetchYunzhiPolicy(token);
         if (useUserStore.getState().policy?.revision === policy.config.revision) return;
-        const models = await fetchYunzhiModels(token);
+        const models = await fetchYunzhiModels(token, policy.config);
         useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
         set({ policy: policy.config });
     },
