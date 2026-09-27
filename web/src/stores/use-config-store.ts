@@ -66,6 +66,14 @@ export type WebdavSyncConfig = {
 };
 export type ConfigTabKey = "channels" | "local-proxy" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
 
+export type YunzhiPolicy = {
+    revision: number;
+    updated_at: number;
+    default_group: string;
+    enabled_models: Record<ModelCapability, string[]>;
+    default_models: Record<ModelCapability, string>;
+};
+
 export type ChannelCredentialsImportResult = {
     status: "created" | "updated" | "missing-base-url" | "invalid-base-url";
     channelName?: string;
@@ -145,7 +153,7 @@ type ConfigStore = {
     openConfigDialog: (shouldPromptContinue?: boolean, tab?: ConfigTabKey) => void;
     setConfigDialogOpen: (isOpen: boolean) => void;
     clearPromptContinue: () => void;
-    configureYunzhiChannel: (apiKey: string, models: ChannelModel[]) => void;
+    configureYunzhiChannel: (apiKey: string, models: ChannelModel[], policy?: YunzhiPolicy) => void;
     clearYunzhiChannel: () => void;
 };
 
@@ -246,16 +254,18 @@ export const useConfigStore = create<ConfigStore>()(
             openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
             clearPromptContinue: () => set({ shouldPromptContinue: false }),
-            configureYunzhiChannel: (apiKey, models) =>
+            configureYunzhiChannel: (apiKey, models, policy) =>
                 set((state) => {
                     const existing = state.config.channels.find((channel) => channel.managedBy === "yunzhi");
+                    const enabled = policy?.enabled_models;
+                    const filteredModels = models.filter((model) => !enabled?.[model.capability]?.length || enabled[model.capability].includes(model.name));
                     const channel: ModelChannel = {
                         id: existing?.id || "yunzhi",
                         name: "云智 AI",
                         baseUrl: "https://yunzhicode.com/v1",
                         apiKey,
                         apiFormat: "openai",
-                        models: models.length ? models : existing?.models || [],
+                        models: filteredModels.length ? filteredModels : existing?.models || [],
                         managedBy: "yunzhi",
                     };
                     const channels = [...state.config.channels.filter((item) => item.managedBy !== "yunzhi"), channel];
@@ -264,16 +274,20 @@ export const useConfigStore = create<ConfigStore>()(
                         const option = channels.flatMap((item) => item.models.filter((model) => model.capability === capability).map((model) => encodeChannelModel(item.id, model.name)))[0];
                         return option || "";
                     };
+                    const configured = (capability: ModelCapability) => {
+                        const name = policy?.default_models?.[capability] || "";
+                        return channel.models.some((model) => model.name === name && model.capability === capability) ? encodeChannelModel(channel.id, name) : first(capability);
+                    };
                     return {
                         config: {
                             ...state.config,
                             channels,
                             models: options,
-                            model: first("image") || options[0] || state.config.model,
-                            imageModel: first("image") || state.config.imageModel,
-                            videoModel: first("video") || state.config.videoModel,
-                            textModel: first("text") || state.config.textModel,
-                            audioModel: first("audio") || state.config.audioModel,
+                            model: configured("image") || options[0] || state.config.model,
+                            imageModel: configured("image") || state.config.imageModel,
+                            videoModel: configured("video") || state.config.videoModel,
+                            textModel: configured("text") || state.config.textModel,
+                            audioModel: configured("audio") || state.config.audioModel,
                         },
                     };
                 }),

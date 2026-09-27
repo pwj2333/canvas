@@ -14,12 +14,29 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
     const importChannelCredentials = useConfigStore((state) => state.importChannelCredentials);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const initializeUser = useUserStore((state) => state.initialize);
+    const authStatus = useUserStore((state) => state.status);
+    const refreshPolicy = useUserStore((state) => state.refreshPolicy);
 
     usePromptSourceScheduler();
 
     useEffect(() => {
         void initializeUser();
     }, [initializeUser]);
+
+    useEffect(() => {
+        if (authStatus !== "authenticated") return;
+        const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("yunzhi-canvas-config") : null;
+        const sync = () => void refreshPolicy().catch(() => undefined);
+        channel?.addEventListener("message", sync);
+        window.addEventListener("storage", sync);
+        const timer = window.setInterval(sync, 15_000);
+        return () => {
+            channel?.removeEventListener("message", sync);
+            channel?.close();
+            window.removeEventListener("storage", sync);
+            window.clearInterval(timer);
+        };
+    }, [authStatus, refreshPolicy]);
 
     useEffect(() => {
         if (handledConfigParams.current) return;

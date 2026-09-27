@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import axios from "axios";
 
-import { clearYunzhiSessionToken, fetchYunzhiModels, fetchYunzhiToken, fetchYunzhiUser, isYunzhiApiUrl, logoutYunzhi, toLocalUser, YunzhiAuthError, yunzhiLoginUrl } from "@/services/api/yunzhi-auth";
-import type { ChannelModel } from "@/stores/use-config-store";
+import { clearYunzhiSessionToken, fetchYunzhiModels, fetchYunzhiPolicy, fetchYunzhiToken, fetchYunzhiUser, isYunzhiApiUrl, logoutYunzhi, toLocalUser, YunzhiAuthError, yunzhiLoginUrl } from "@/services/api/yunzhi-auth";
+import type { ChannelModel, YunzhiPolicy } from "@/stores/use-config-store";
 import { useConfigStore } from "@/stores/use-config-store";
 
 export type LocalUser = {
@@ -10,6 +10,8 @@ export type LocalUser = {
     username: string;
     displayName: string;
     avatarUrl: string;
+    role: number;
+    group: string;
 };
 
 type UserStore = {
@@ -20,6 +22,8 @@ type UserStore = {
     loginRedirect: () => void;
     logout: () => Promise<void>;
     clearSession: () => void;
+    policy: YunzhiPolicy | null;
+    refreshPolicy: () => Promise<void>;
 };
 
 let initialization: Promise<void> | null = null;
@@ -28,6 +32,7 @@ export const useUserStore = create<UserStore>()((set) => ({
     user: null,
     status: "idle",
     error: "",
+    policy: null,
     initialize: async () => {
         if (initialization) return initialization;
         initialization = (async () => {
@@ -42,8 +47,9 @@ export const useUserStore = create<UserStore>()((set) => ({
                     if (modelError instanceof YunzhiAuthError) throw modelError;
                     models = [];
                 }
-                useConfigStore.getState().configureYunzhiChannel(token, models);
-                set({ user: toLocalUser(user), status: "authenticated", error: "" });
+                const policy = await fetchYunzhiPolicy(token);
+                useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
+                set({ user: toLocalUser(user), policy: policy.config, status: "authenticated", error: "" });
             } catch (error) {
                 clearYunzhiSessionToken();
                 set({ user: null, status: error instanceof YunzhiAuthError ? "unauthenticated" : "error", error: error instanceof Error ? error.message : "云智登录状态无效" });
@@ -56,13 +62,21 @@ export const useUserStore = create<UserStore>()((set) => ({
     loginRedirect: () => {
         window.location.assign(yunzhiLoginUrl());
     },
+    refreshPolicy: async () => {
+        const token = await fetchYunzhiToken();
+        const policy = await fetchYunzhiPolicy(token);
+        if (useUserStore.getState().policy?.revision === policy.config.revision) return;
+        const models = await fetchYunzhiModels(token);
+        useConfigStore.getState().configureYunzhiChannel(token, models, policy.config);
+        set({ policy: policy.config });
+    },
     logout: async () => {
         try {
             await logoutYunzhi();
         } finally {
             clearYunzhiSessionToken();
             useConfigStore.getState().clearYunzhiChannel();
-            set({ user: null, status: "unauthenticated", error: "" });
+            set({ user: null, policy: null, status: "unauthenticated", error: "" });
         }
     },
     clearSession: () => {

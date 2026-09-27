@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { cn } from "@/lib/utils";
+import { ShieldCheck } from "lucide-react";
+import { useUserStore } from "@/stores/use-user-store";
 
 type MobileNavDrawerProps = {
     open: boolean;
@@ -13,6 +15,7 @@ type MobileNavDrawerProps = {
 
 export function MobileNavDrawer({ open, activeToolSlug, onClose }: MobileNavDrawerProps) {
     const { t } = useTranslation();
+    const user = useUserStore((state) => state.user);
 
     return (
         <Drawer title={t("topNav.navigation")} placement="left" size={280} open={open} onClose={onClose} className="md:hidden">
@@ -35,6 +38,7 @@ export function MobileNavDrawer({ open, activeToolSlug, onClose }: MobileNavDraw
                         </Link>
                     );
                 })}
+                {user && user.role >= 10 ? <Link to="/admin" onClick={onClose} className="flex items-center gap-3 rounded-lg px-3 py-3 text-base text-stone-600 transition hover:bg-stone-100 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-stone-100"><ShieldCheck className="size-5" /><span>云智管理</span></Link> : null}
             </div>
         </Drawer>
     );

@@ -19,6 +19,16 @@ export type YunzhiUser = {
     used_quota?: number;
 };
 
+export type YunzhiPolicy = {
+    revision: number;
+    updated_at: number;
+    default_group: string;
+    enabled_models: Record<"text" | "image" | "video" | "audio", string[]>;
+    default_models: Record<"text" | "image" | "video" | "audio", string>;
+};
+
+export type YunzhiCatalog = { models: string[]; groups: string[] };
+
 type ApiEnvelope<T> = { success?: boolean; message?: string; data?: T };
 
 export class YunzhiAuthError extends Error {}
@@ -32,6 +42,10 @@ function sessionToken() {
         return "";
     }
     return token;
+}
+
+export function getYunzhiSessionToken() {
+    return sessionToken();
 }
 
 function saveSession(token: string, expiresAt: number, user: YunzhiUser) {
@@ -78,7 +92,9 @@ export async function fetchYunzhiUser() {
         const cached = window.sessionStorage.getItem(SESSION_USER_KEY);
         if (cached) {
             try {
-                return JSON.parse(cached) as YunzhiUser;
+                const user = JSON.parse(cached) as YunzhiUser;
+                if (user.role === undefined) throw new Error("stale Canvas session");
+                return user;
             } catch {
                 window.sessionStorage.removeItem(SESSION_USER_KEY);
             }
@@ -125,6 +141,18 @@ export async function fetchYunzhiModels(token: string): Promise<ChannelModel[]> 
         .map((name) => ({ name, capability: guessCapability(name) }));
 }
 
+export async function fetchYunzhiPolicy(token: string) {
+    return request<{ config: YunzhiPolicy; groups: string[] }>("/api/canvas/config", {}, token);
+}
+
+export async function fetchYunzhiCatalog(token: string) {
+    return request<YunzhiCatalog>("/api/canvas/admin/catalog", {}, token);
+}
+
+export async function saveYunzhiPolicy(token: string, policy: Pick<YunzhiPolicy, "default_group" | "enabled_models" | "default_models">) {
+    return request<{ config: YunzhiPolicy; groups: string[] }>("/api/canvas/config", { method: "PUT", body: JSON.stringify(policy) }, token);
+}
+
 export async function logoutYunzhi() {
     try {
         const token = sessionToken();
@@ -154,5 +182,7 @@ export function toLocalUser(user: YunzhiUser) {
         username: user.username || String(user.id),
         displayName: user.display_name || user.displayName || user.username || String(user.id),
         avatarUrl: user.avatar_url || user.avatarUrl || "",
+        role: Number(user.role || 0),
+        group: user.group || "default",
     };
 }
