@@ -35,15 +35,18 @@ export default function AdminPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [dirty, setDirty] = useState(false);
 
     const load = async (silent = false) => {
         const token = getYunzhiSessionToken();
         if (!token) return;
+        if (silent && dirty) return;
         if (!silent) setLoading(true);
         try {
             const [nextCatalog, nextPolicy] = await Promise.all([fetchYunzhiCatalog(token), fetchYunzhiPolicy(token)]);
             setCatalog({ models: Array.isArray(nextCatalog.models) ? nextCatalog.models : [], groups: Array.isArray(nextCatalog.groups) ? nextCatalog.groups : [] });
             setPolicy(normalizePolicy(nextPolicy.config));
+            setDirty(false);
         } catch (error) {
             if (!silent) message.error(error instanceof Error ? error.message : "读取云智管理配置失败");
         } finally {
@@ -64,7 +67,7 @@ export default function AdminPage() {
             window.removeEventListener("storage", sync);
             window.clearInterval(timer);
         };
-    }, []);
+    }, [dirty]);
 
     const categorized = useMemo(() => {
         const groups = Object.fromEntries(capabilities.map((capability) => [capability, [] as string[]])) as Record<ModelCapability, string[]>;
@@ -90,6 +93,7 @@ export default function AdminPage() {
         const defaults = { ...policy.default_models };
         if (!enabled && defaults[capability] === model) defaults[capability] = "";
         setPolicy({ ...policy, enabled_models: next, enabled_models_configured: true, default_models: defaults });
+        setDirty(true);
     };
     const setModelType = (model: string, value?: ModelCapability) => {
         const previous = policy.model_types[model];
@@ -104,6 +108,7 @@ export default function AdminPage() {
         const defaults = { ...policy.default_models };
         if (previous && defaults[previous] === model) defaults[previous] = "";
         setPolicy({ ...policy, model_types: types, enabled_models: next, enabled_models_configured: true, default_models: defaults });
+        setDirty(true);
     };
     const moveModel = (capability: ModelCapability, model: string, delta: -1 | 1) => {
         const next = materializeEnabled();
@@ -114,6 +119,7 @@ export default function AdminPage() {
         [names[index], names[target]] = [names[target], names[index]];
         next[capability] = names;
         setPolicy({ ...policy, enabled_models: next, enabled_models_configured: true });
+        setDirty(true);
     };
     const save = async () => {
         setSaving(true);
@@ -126,6 +132,7 @@ export default function AdminPage() {
                 default_models: policy.default_models,
             });
             setPolicy(normalizePolicy(response.config));
+            setDirty(false);
             const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("yunzhi-canvas-config") : null;
             channel?.postMessage({ revision: response.config.revision });
             channel?.close();
@@ -149,7 +156,7 @@ export default function AdminPage() {
             setTesting(false);
         }
     };
-    const groupSelect = (capability: ModelCapability) => <Select className="w-full" value={policy.default_groups[capability]} options={catalog.groups.map((group) => ({ value: group, label: group === "auto" ? "auto（自动路由）" : group }))} onChange={(value) => setPolicy({ ...policy, default_groups: { ...policy.default_groups, [capability]: value } })} />;
+    const groupSelect = (capability: ModelCapability) => <Select className="w-full" value={policy.default_groups[capability]} options={catalog.groups.map((group) => ({ value: group, label: group === "auto" ? "auto（自动路由）" : group }))} onChange={(value) => { setPolicy({ ...policy, default_groups: { ...policy.default_groups, [capability]: value } }); setDirty(true); }} />;
     const typeSelect = (name: string) => <Select<string> size="small" value={policy.model_types[name] || "unclassified"} options={[{ value: "unclassified", label: "未分类" }, ...capabilities.map((capability) => ({ value: capability, label: labels[capability] }))]} onChange={(value) => setModelType(name, value === "unclassified" ? undefined : value as ModelCapability)} />;
     const modelRows = (capability: ModelCapability) => {
         const enabled = effectiveEnabled(capability);
@@ -186,7 +193,7 @@ export default function AdminPage() {
                             {modelRows(capability)}
                             {categorized.groups[capability].length === 0 ? <div className="py-5 text-center text-sm text-stone-500">还没有分配到此类型的模型</div> : null}
                         </div>
-                        <div className="mt-4"><Typography.Text type="secondary">默认模型</Typography.Text><Select allowClear className="mt-2 w-full" placeholder="未指定时使用第一个启用模型" value={policy.default_models[capability] || undefined} options={enabled.map((name) => ({ label: name, value: name }))} onChange={(value) => setPolicy({ ...policy, default_models: { ...policy.default_models, [capability]: value || "" } })} /></div>
+                        <div className="mt-4"><Typography.Text type="secondary">默认模型</Typography.Text><Select allowClear className="mt-2 w-full" placeholder="未指定时使用第一个启用模型" value={policy.default_models[capability] || undefined} options={enabled.map((name) => ({ label: name, value: name }))} onChange={(value) => { setPolicy({ ...policy, default_models: { ...policy.default_models, [capability]: value || "" } }); setDirty(true); }} /></div>
                     </Card></Col>;
                 })}
                 <Col span={24}><Card title="未分类模型" extra={<Tag>{categorized.unclassified.length} 个模型</Tag>}>
