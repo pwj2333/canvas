@@ -209,7 +209,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                                 </div>
                                             </div>
                                             <div className="flex shrink-0 gap-2">
-                                                <Button size="small" disabled={channel.managedBy === "yunzhi" && !isAdmin} icon={channel.managedBy === "yunzhi" ? <ShieldCheck className="size-3.5" /> : <Pencil className="size-3.5" />} onClick={() => channel.managedBy === "yunzhi" ? (setConfigDialogOpen(false), navigate("/admin")) : setEditingChannelId(channel.id)}>
+                                                <Button size="small" disabled={channel.managedBy === "yunzhi" && !isAdmin} icon={<Pencil className="size-3.5" />} onClick={() => setEditingChannelId(channel.id)}>
                                                     {t("common.edit")}
                                                 </Button>
                                                 <Button size="small" danger disabled={channel.managedBy === "yunzhi"} icon={<Trash2 className="size-3.5" />} onClick={() => deleteChannel(channel.id)} />
