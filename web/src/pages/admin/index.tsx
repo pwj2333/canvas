@@ -12,10 +12,12 @@ const emptySelection = (): YunzhiPolicy["enabled_models"] => ({ text: [], image:
 const emptyDefaults = (): YunzhiPolicy["default_models"] => ({ text: "", image: "", video: "", audio: "" });
 
 function normalizePolicy(policy: YunzhiPolicy): YunzhiPolicy {
+    const rawEnabled = policy.enabled_models || {};
+    const rawDefaults = policy.default_models || {};
     return {
         ...policy,
-        enabled_models: { ...emptySelection(), ...(policy.enabled_models || {}) },
-        default_models: { ...emptyDefaults(), ...(policy.default_models || {}) },
+        enabled_models: Object.fromEntries(capabilities.map((capability) => [capability, Array.isArray(rawEnabled[capability]) ? rawEnabled[capability] : []])) as YunzhiPolicy["enabled_models"],
+        default_models: Object.fromEntries(capabilities.map((capability) => [capability, typeof rawDefaults[capability] === "string" ? rawDefaults[capability] : ""])) as YunzhiPolicy["default_models"],
     };
 }
 
@@ -35,7 +37,7 @@ export default function AdminPage() {
         if (!silent) setLoading(true);
         try {
             const [nextCatalog, nextPolicy] = await Promise.all([fetchYunzhiCatalog(token), fetchYunzhiPolicy(token)]);
-            setCatalog(nextCatalog);
+            setCatalog({ models: Array.isArray(nextCatalog.models) ? nextCatalog.models : [], groups: Array.isArray(nextCatalog.groups) ? nextCatalog.groups : [] });
             setPolicy(normalizePolicy(nextPolicy.config));
         } catch (error) {
             if (!silent) message.error(error instanceof Error ? error.message : "读取云智管理配置失败");
