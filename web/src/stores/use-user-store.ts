@@ -33,8 +33,8 @@ export const useUserStore = create<UserStore>()((set) => ({
         initialization = (async () => {
             set({ status: "checking", error: "" });
             try {
-                const user = await fetchYunzhiUser();
                 const token = await fetchYunzhiToken();
+                const user = await fetchYunzhiUser();
                 let models: ChannelModel[] = [];
                 try {
                     models = await fetchYunzhiModels(token);

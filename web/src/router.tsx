@@ -22,6 +22,7 @@ export const router = createBrowserRouter([
         ),
         children: [
             { path: "/", element: <HomePage /> },
+            { path: "/sso/callback", element: <HomePage /> },
             { path: "/image", element: <ImagePage /> },
             { path: "/video", element: <VideoPage /> },
             { path: "/assets", element: <AssetsPage /> },

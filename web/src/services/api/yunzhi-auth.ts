@@ -3,6 +3,8 @@ import { guessCapability, type ChannelModel } from "@/stores/use-config-store";
 export const YUNZHI_BASE_URL = "https://yunzhicode.com";
 export const YUNZHI_API_BASE_URL = `${YUNZHI_BASE_URL}/v1`;
 const SESSION_TOKEN_KEY = "yunzhi-canvas:access-token";
+const SESSION_TOKEN_EXPIRES_KEY = "yunzhi-canvas:access-token-expires";
+const SESSION_USER_KEY = "yunzhi-canvas:user";
 
 export type YunzhiUser = {
     id: number | string;
@@ -23,15 +25,27 @@ export class YunzhiAuthError extends Error {}
 
 function sessionToken() {
     if (typeof window === "undefined") return "";
-    return window.sessionStorage.getItem(SESSION_TOKEN_KEY) || "";
+    const token = window.sessionStorage.getItem(SESSION_TOKEN_KEY) || "";
+    const expiresAt = Number(window.sessionStorage.getItem(SESSION_TOKEN_EXPIRES_KEY) || 0);
+    if (!token || !expiresAt || expiresAt <= Math.floor(Date.now() / 1000) + 30) {
+        clearYunzhiSessionToken();
+        return "";
+    }
+    return token;
 }
 
-function saveSessionToken(token: string) {
-    if (typeof window !== "undefined") window.sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+function saveSession(token: string, expiresAt: number, user: YunzhiUser) {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    window.sessionStorage.setItem(SESSION_TOKEN_EXPIRES_KEY, String(expiresAt));
+    window.sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
 }
 
 export function clearYunzhiSessionToken() {
-    if (typeof window !== "undefined") window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    if (typeof window === "undefined") return;
+    window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    window.sessionStorage.removeItem(SESSION_TOKEN_EXPIRES_KEY);
+    window.sessionStorage.removeItem(SESSION_USER_KEY);
 }
 
 async function request<T>(path: string, init: RequestInit = {}, token = "") {
@@ -60,16 +74,36 @@ async function request<T>(path: string, init: RequestInit = {}, token = "") {
 }
 
 export async function fetchYunzhiUser() {
-    return request<YunzhiUser>("/api/user/self");
+    if (typeof window !== "undefined") {
+        const cached = window.sessionStorage.getItem(SESSION_USER_KEY);
+        if (cached) {
+            try {
+                return JSON.parse(cached) as YunzhiUser;
+            } catch {
+                window.sessionStorage.removeItem(SESSION_USER_KEY);
+            }
+        }
+    }
+    throw new YunzhiAuthError("Canvas 登录已失效，请重新登录");
 }
 
 export async function fetchYunzhiToken() {
     const token = sessionToken();
     if (token) return token;
-    const nextToken = await request<string>("/api/user/token");
-    if (!nextToken?.trim()) throw new Error("云智服务没有返回 API 令牌");
-    saveSessionToken(nextToken.trim());
-    return nextToken.trim();
+    const ticket = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("ticket") || "";
+    if (!ticket) throw new YunzhiAuthError("Canvas 登录已失效，请重新登录");
+    const exchanged = await request<{ token: string; expires_at: number; user: YunzhiUser }>("/api/canvas/sso/exchange", {
+        method: "POST",
+        body: JSON.stringify({ ticket }),
+    });
+    if (!exchanged?.token?.trim() || !exchanged.expires_at || !exchanged.user) throw new Error("Canvas 登录票据兑换失败");
+    saveSession(exchanged.token.trim(), exchanged.expires_at, exchanged.user);
+    if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("ticket");
+        window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+    return exchanged.token.trim();
 }
 
 export async function fetchYunzhiModels(token: string): Promise<ChannelModel[]> {
@@ -93,7 +127,8 @@ export async function fetchYunzhiModels(token: string): Promise<ChannelModel[]> 
 
 export async function logoutYunzhi() {
     try {
-        await request("/api/user/logout");
+        const token = sessionToken();
+        if (token) await request("/api/canvas/sso/revoke", { method: "POST" }, token);
     } finally {
         clearYunzhiSessionToken();
     }
@@ -109,8 +144,8 @@ export function isYunzhiApiUrl(url?: string) {
 }
 
 export function yunzhiLoginUrl() {
-    const redirect = typeof window === "undefined" ? "https://canvas.yunzhicode.com/" : window.location.href;
-    return `${YUNZHI_BASE_URL}/sign-in?redirect=${encodeURIComponent(redirect)}`;
+    const redirect = typeof window === "undefined" ? "https://canvas.yunzhicode.com/sso/callback" : `${window.location.origin}/sso/callback`;
+    return `${YUNZHI_BASE_URL}/api/canvas/sso/start?redirect=${encodeURIComponent(redirect)}`;
 }
 
 export function toLocalUser(user: YunzhiUser) {

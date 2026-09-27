@@ -19,8 +19,8 @@ export function YunzhiAuthGate({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (status !== "unauthenticated" || localDevelopment || redirectStarted.current) return;
         redirectStarted.current = true;
-        window.location.assign("https://yunzhicode.com/sign-in?redirect=" + encodeURIComponent(window.location.href));
-    }, [localDevelopment, status]);
+        loginRedirect();
+    }, [localDevelopment, loginRedirect, status]);
 
     if (status === "authenticated") return <>{children}</>;
     if (status === "checking" || status === "idle") {
