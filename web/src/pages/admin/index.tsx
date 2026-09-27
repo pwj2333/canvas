@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { App, Button, Card, Checkbox, Col, Empty, Row, Select, Space, Spin, Tag, Typography } from "antd";
+import { App, Button, Card, Checkbox, Col, Empty, Row, Select, Space, Spin, Switch, Tag, Typography } from "antd";
 import { CheckCircle2, ChevronDown, ChevronUp, RefreshCw, Save, ShieldCheck } from "lucide-react";
 
 import { fetchYunzhiCatalog, fetchYunzhiModels, fetchYunzhiPolicy, getYunzhiSessionToken, saveYunzhiPolicy, type YunzhiCatalog } from "@/services/api/yunzhi-auth";
@@ -18,6 +18,7 @@ function normalizePolicy(policy: YunzhiPolicy): YunzhiPolicy {
     const rawGroups = policy.default_groups || {};
     return {
         ...policy,
+        allow_external_channels: Boolean(policy.allow_external_channels),
         enabled_models: Object.fromEntries(capabilities.map((capability) => [capability, Array.isArray(rawEnabled[capability]) ? rawEnabled[capability] : []])) as YunzhiPolicy["enabled_models"],
         default_models: Object.fromEntries(capabilities.map((capability) => [capability, typeof rawDefaults[capability] === "string" ? rawDefaults[capability] : ""])) as YunzhiPolicy["default_models"],
         default_groups: Object.fromEntries(capabilities.map((capability) => [capability, typeof rawGroups[capability] === "string" ? rawGroups[capability] : policy.default_group || "auto"])) as YunzhiPolicy["default_groups"],
@@ -125,6 +126,7 @@ export default function AdminPage() {
         setSaving(true);
         try {
             const response = await saveYunzhiPolicy(getYunzhiSessionToken(), {
+                allow_external_channels: policy.allow_external_channels,
                 default_groups: policy.default_groups,
                 enabled_models: policy.enabled_models,
                 enabled_models_configured: true,
@@ -185,6 +187,9 @@ export default function AdminPage() {
                 <Space wrap><Button icon={<RefreshCw className="size-4" />} onClick={() => void load()} loading={loading}>刷新目录</Button><Button icon={<CheckCircle2 className="size-4" />} onClick={() => void testConnection()} loading={testing}>测试连接</Button><Button type="primary" icon={<Save className="size-4" />} onClick={() => void save()} loading={saving}>保存配置</Button></Space>
             </div>
             <Row gutter={[16, 16]}>
+                <Col span={24}><Card title="外部大模型渠道" extra={<Tag color={policy.allow_external_channels ? "green" : "default"}>{policy.allow_external_channels ? "已开启" : "已关闭"}</Tag>}>
+                    <div className="flex flex-wrap items-center justify-between gap-4"><div><Typography.Text strong>允许用户配置外部大模型</Typography.Text><Typography.Paragraph type="secondary" className="!mb-0 !mt-1">关闭后，普通用户只能使用云智自动配置的模型和渠道。</Typography.Paragraph></div><Switch checked={policy.allow_external_channels} onChange={(checked) => { setPolicy({ ...policy, allow_external_channels: checked }); setDirty(true); }} checkedChildren="允许" unCheckedChildren="禁止" /></div>
+                </Card></Col>
                 {capabilities.map((capability) => {
                     const enabled = effectiveEnabled(capability);
                     return <Col key={capability} xs={24} lg={12}><Card title={labels[capability]} extra={<Tag>{categorized.groups[capability].length} 个模型</Tag>}>

@@ -70,6 +70,7 @@ export type YunzhiPolicy = {
     revision: number;
     updated_at: number;
     default_group: string;
+    allow_external_channels: boolean;
     default_groups: Record<ModelCapability, string>;
     enabled_models: Record<ModelCapability, string[]>;
     enabled_models_configured: boolean;
@@ -272,7 +273,8 @@ export const useConfigStore = create<ConfigStore>()(
                         models: filteredModels,
                         managedBy: "yunzhi",
                     };
-                    const channels = [...state.config.channels.filter((item) => item.managedBy !== "yunzhi"), channel];
+                    const preservedChannels = policy?.allow_external_channels === false ? [] : state.config.channels.filter((item) => item.managedBy !== "yunzhi");
+                    const channels = [...preservedChannels, channel];
                     const options = modelOptionsFromChannels(channels);
                     const first = (capability: ModelCapability) => {
                         const option = channels.flatMap((item) => item.models.filter((model) => model.capability === capability).map((model) => encodeChannelModel(item.id, model.name)))[0];
@@ -289,9 +291,9 @@ export const useConfigStore = create<ConfigStore>()(
                             models: options,
                             model: configured("image") || options[0] || state.config.model,
                             imageModel: configured("image") || state.config.imageModel,
-                            videoModel: configured("video") || state.config.videoModel,
-                            textModel: configured("text") || state.config.textModel,
-                            audioModel: configured("audio") || state.config.audioModel,
+                            videoModel: configured("video") || first("video"),
+                            textModel: configured("text") || first("text"),
+                            audioModel: configured("audio") || first("audio"),
                         },
                     };
                 }),

@@ -23,6 +23,7 @@ export type YunzhiPolicy = {
     revision: number;
     updated_at: number;
     default_group: string;
+    allow_external_channels: boolean;
     default_groups: Record<ModelCapability, string>;
     enabled_models: Record<ModelCapability, string[]>;
     enabled_models_configured: boolean;
@@ -157,7 +158,7 @@ export async function fetchYunzhiCatalog(token: string) {
     return request<YunzhiCatalog>("/api/canvas/admin/catalog", {}, token);
 }
 
-export async function saveYunzhiPolicy(token: string, policy: Pick<YunzhiPolicy, "default_groups" | "enabled_models" | "enabled_models_configured" | "model_types" | "default_models">) {
+export async function saveYunzhiPolicy(token: string, policy: Pick<YunzhiPolicy, "default_groups" | "enabled_models" | "enabled_models_configured" | "model_types" | "default_models" | "allow_external_channels">) {
     return request<{ config: YunzhiPolicy; groups: string[] }>("/api/canvas/config", { method: "PUT", body: JSON.stringify(policy) }, token);
 }
 
