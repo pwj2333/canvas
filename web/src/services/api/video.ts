@@ -3,10 +3,10 @@ import { nanoid } from "nanoid";
 
 import i18n from "@/i18n";
 import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
-import { clampVideoSeconds, computeVideoSize, inferVideoRatio } from "@/lib/media-size";
+import { clampVideoSeconds, computeVideoSize, inferVideoRatio, parseVideoResolution } from "@/lib/media-size";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
-import { boolConfig, buildApiUrl, modelOptionName, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
+import { boolConfig, buildApiUrl, modelOptionName, resolveModelChannel, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
 import { runModelPlugin } from "./model-plugin";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
@@ -76,6 +76,8 @@ export async function createVideoGenerationTask(config: AiConfig, prompt: string
     if (script) return createPluginVideoTask(requestConfig, selectedModel, script, prompt, references, options);
     assertVideoConfig(requestConfig, requestConfig.model);
     if (requestConfig.apiFormat === "gemini") return createGeminiVideoTask(requestConfig, selectedModel, prompt, references, options);
+    // 云智托管渠道的网关按自己的字段名收参数，和 OpenAI / Sora 的请求体不兼容。
+    if (isManagedVideoChannel(config, selectedModel)) return createManagedVideoTask(requestConfig, selectedModel, prompt, references, options);
     return createOpenAIVideoTask(requestConfig, selectedModel, prompt, references, options);
 }
 
@@ -168,6 +170,67 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
     }
     videos.forEach((file) => body.append("video[]", file));
     audios.forEach((file) => body.append("audio[]", file));
+    try {
+        const created = unwrapVideoResponse((await axios.post<ApiVideoResponse>(aiApiUrl(config, "/videos"), body, { headers: aiHeaders(config), signal: options?.signal })).data);
+        if (!created.id) throw new Error(apiText("noVideoTaskId"));
+        return { id: created.id, provider: "openai", model };
+    } catch (error) {
+        throw new Error(readAxiosError(error, apiText("videoTaskCreateFailed")));
+    }
+}
+
+/** 云智托管渠道的网关按自己的字段名解析参数，和 OpenAI / Sora 形状不兼容。 */
+function isManagedVideoChannel(config: AiConfig, value: string) {
+    return resolveModelChannel(config, value).managedBy === "yunzhi";
+}
+
+/** MiniMax-H3 只接受固定尺寸表里的宽高，且分辨率档位是 480p / 768p / 1080p。 */
+const managedFixedFormats: Record<string, string[]> = {
+    "16:9": ["864x480", "1376x768", "1920x1088"],
+    "9:16": ["480x864", "768x1376", "1088x1920"],
+    "1:1": ["640x640", "1024x1024", "1440x1440"],
+    "3:4": ["576x736", "896x1184", "1248x1664"],
+    "4:3": ["736x576", "1184x896", "1664x1248"],
+    "21:9": ["992x416", "1568x672", "2208x960"],
+};
+
+/** MiniMax-H3 上限 15 秒，seedance-2.0 只接受 5 / 10 / 15 秒，seedance-2.5 可用到 30 秒。 */
+function managedVideoSeconds(model: string, seconds: number) {
+    const name = modelOptionName(model);
+    const clamped = Math.max(4, seconds);
+    if (/minimax/i.test(name)) return Math.min(15, clamped);
+    if (/seedance-2\.0/i.test(name)) return [5, 10, 15].reduce((best, allowed) => (Math.abs(allowed - clamped) < Math.abs(best - clamped) ? allowed : best), 5);
+    return Math.min(30, clamped);
+}
+
+/** H3 只收固定尺寸表里的宽高；其余模型直接给分辨率，避免按 size 反推时踩到网关不认的宽高组合。 */
+function managedVideoFormat(model: string, ratio: string, resolution: string) {
+    if (!/minimax/i.test(modelOptionName(model))) return { resolution };
+    const formats = managedFixedFormats[ratio];
+    if (!formats) return { resolution };
+    // H3 的 768p 档位对应界面上的 720p，480p 与 1080p 直接对齐。
+    const tier = Number(parseVideoResolution(resolution));
+    return { size: formats[tier >= 1000 ? 2 : tier >= 700 ? 1 : 0] };
+}
+
+async function createManagedVideoTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
+    const images = await Promise.all(references.map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
+    const ratio = videoAspectRatio(config.size);
+    const resolution = normalizeVideoResolution(config.vquality);
+    const seconds = String(managedVideoSeconds(model, Number(normalizeVideoSeconds(config.videoSeconds)) || 5));
+    const body = new FormData();
+    body.append("model", modelOptionName(model));
+    body.append("prompt", prompt);
+    body.append("seconds", seconds);
+    body.append("duration", seconds);
+    const format = managedVideoFormat(model, ratio, resolution);
+    if (format.size) body.append("size", format.size);
+    else body.append("resolution", format.resolution);
+    body.append("aspect_ratio", ratio);
+    // H3 用 audio，seedance 用 generate_audio；网关都不接受 watermark，所以不发送。
+    body.append(/minimax/i.test(modelOptionName(model)) ? "audio" : "generate_audio", String(boolConfig(config.videoGenerateAudio, true)));
+    // 参考图只能按上传文件投递：网关把图片缓存成本地地址，之后才允许引用。
+    images.forEach((file) => body.append("input_reference", file, "ref.png"));
     try {
         const created = unwrapVideoResponse((await axios.post<ApiVideoResponse>(aiApiUrl(config, "/videos"), body, { headers: aiHeaders(config), signal: options?.signal })).data);
         if (!created.id) throw new Error(apiText("noVideoTaskId"));

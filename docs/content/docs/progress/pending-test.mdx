@@ -6,6 +6,7 @@ description: Implemented changes that still need manual verification
 # Pending Tests
 
 - 云智账号本地数据隔离：两个账号在同一浏览器登录时，画布、素材和生成记录应分别加载；登出后不应保留上一账号的内存内容。
+- 云智托管视频模型：选择「MiniMax-H3（云智 AI）」「seedance-2.0（云智 AI）」或「seedance-2.5（云智 AI）」并连接参考图生成时，请求应改为按网关字段提交（`seconds`/`duration`、`aspect_ratio`、`size`、参考图走 `input_reference` 上传），不再发送 `resolution_name`、`mode`、`first_frame` 等网关不认的字段；参考图不得丢失。seedance-2.0 的秒数应吸附到 5、10 或 15，MiniMax-H3 的尺寸应吸附到它固定支持的宽高。画布视频节点连接参考图生成应同样生效，刷新后 `pending` 记录仍可继续查询。
 - 管理员关闭外部大模型渠道后，普通用户配置页不应显示新增外部渠道入口，视频工作台应只显示已分类的视频模型。
 - 云智管理员后台：逐个模型指定文本、图片、视频、音频类型，分别设置四类默认模型和调用分组；普通用户只应看到管理员启用且已分类的模型，各类请求应使用对应分组。
 
